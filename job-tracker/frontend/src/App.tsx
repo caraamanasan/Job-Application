@@ -18,6 +18,7 @@ import {
 import {
   ApiError,
   createApplication,
+  getAllApplications,
   getApplications,
   getCsrfToken,
   removeApplication,
@@ -28,6 +29,7 @@ import {
   type ApplicationStatus,
   type FieldErrors,
 } from "./api";
+import ApplicationInsights from "./ApplicationInsights";
 
 type FormValues = {
   company: string;
@@ -120,8 +122,11 @@ function percentage(part: number, total: number): string {
 export default function App() {
   const [csrfToken, setCsrfToken] = useState("");
   const [applications, setApplications] = useState<Application[]>([]);
-  const [view, setView] = useState<"dashboard" | "applications">("dashboard");
+  const [view, setView] = useState<"dashboard" | "applications" | "insights">("dashboard");
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
+  const [insightApplications, setInsightApplications] = useState<Application[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(true);
+  const [insightsLoadError, setInsightsLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "">("");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -164,6 +169,27 @@ export default function App() {
       })
       .finally(() => {
         if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [refreshKey]);
+
+  useEffect(() => {
+    let active = true;
+    setInsightsLoading(true);
+    getAllApplications()
+      .then((result) => {
+        if (active) {
+          setInsightApplications(result);
+          setInsightsLoadError("");
+        }
+      })
+      .catch(() => {
+        if (active) setInsightsLoadError("Application insights could not be loaded. Please try again.");
+      })
+      .finally(() => {
+        if (active) setInsightsLoading(false);
       });
     return () => {
       active = false;
@@ -248,12 +274,16 @@ export default function App() {
     if (!csrfToken) return;
     setLoadError("");
     try {
-      await updateApplication(application.id, { status: nextStatus }, csrfToken);
+      const updated = await updateApplication(application.id, { status: nextStatus }, csrfToken);
       setApplications((current) =>
         current.map((item) =>
           item.id === application.id ? { ...item, status: nextStatus } : item,
         ),
       );
+      setInsightApplications((current) =>
+        current.map((item) => item.id === updated.id ? updated : item),
+      );
+      setInsightsLoadError("");
       setNotice(`${application.company} status updated to ${nextStatus}.`);
     } catch {
       setLoadError("Status could not be updated. Please try again.");
@@ -269,6 +299,8 @@ export default function App() {
     try {
       await removeApplication(application.id, csrfToken);
       setApplications((current) => current.filter((item) => item.id !== application.id));
+      setInsightApplications((current) => current.filter((item) => item.id !== application.id));
+      setInsightsLoadError("");
       setNotice(`Application for ${application.company} removed.`);
     } catch {
       setLoadError("Application could not be removed. Please try again.");
@@ -361,6 +393,14 @@ export default function App() {
           >
             <List size={16} aria-hidden="true" /> Applications
           </button>
+          <button
+            className={view === "insights" ? "nav-link active" : "nav-link"}
+            type="button"
+            aria-current={view === "insights" ? "page" : undefined}
+            onClick={() => { setNotice(""); setView("insights"); }}
+          >
+            <LayoutDashboard size={16} aria-hidden="true" /> Insights
+          </button>
         </nav>
         <span className="local-indicator"><span aria-hidden="true" /> Private workspace</span>
       </header>
@@ -369,13 +409,23 @@ export default function App() {
         <section className="page-heading" aria-labelledby="page-title">
           <div>
             <p className="eyebrow">YOUR SEARCH, IN ORDER</p>
-            <h1 id="page-title">{view === "dashboard" ? "Job search dashboard" : "Applications"}</h1>
-            <p className="page-intro">{view === "dashboard" ? "Progress, priorities, and the next move." : "A clear view of every opportunity and what comes next."}</p>
+            <h1 id="page-title">
+              {view === "dashboard" ? "Job search dashboard" : view === "insights" ? "Insights" : "Applications"}
+            </h1>
+            <p className="page-intro">
+              {view === "dashboard"
+                ? "Progress, priorities, and the next move."
+                : view === "insights"
+                  ? "Your application outcomes and daily momentum, at a glance."
+                  : "A clear view of every opportunity and what comes next."}
+            </p>
           </div>
-          <button className="button button-primary" type="button" onClick={openNewForm}>
-            <Plus size={18} aria-hidden="true" />
-            <span>Add application</span>
-          </button>
+          {view === "applications" && (
+            <button className="button button-primary" type="button" onClick={openNewForm}>
+              <Plus size={18} aria-hidden="true" />
+              <span>Add application</span>
+            </button>
+          )}
         </section>
 
         {notice && <p className="notice" role="status">{notice}</p>}
@@ -649,7 +699,7 @@ export default function App() {
           </section>
         )}
 
-        {view === "applications" && <section className="list-section" aria-labelledby="list-title" aria-busy={loading}>
+  {view === "applications" && <section className="list-section" aria-labelledby="list-title" aria-busy={loading}>
           <div className="list-header">
             <div className="list-title-wrap">
               <h2 id="list-title">Your applications</h2>
@@ -752,6 +802,15 @@ export default function App() {
             </ul>
           )}
         </section>}
+
+  {view === "insights" && (
+          <ApplicationInsights
+            applications={insightApplications}
+            loading={insightsLoading}
+            error={insightsLoadError}
+            onRetry={() => setRefreshKey((key) => key + 1)}
+          />
+        )}
         <footer className="workspace-footer">
           <span>Stored on this device</span>
           <span>NextRole <span aria-hidden="true">·</span> Personal edition</span>
