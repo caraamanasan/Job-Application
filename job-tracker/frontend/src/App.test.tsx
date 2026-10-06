@@ -69,7 +69,6 @@ describe("Application tracker", () => {
     expect(logo.querySelector(".wordmark-mark")).not.toHaveTextContent("A");
     expect(await screen.findByRole("heading", { name: "Job search dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Track today. Plan what's next.")).toBeInTheDocument();
-    expect(screen.queryByText("Follow-ups due")).not.toBeInTheDocument();
     expect(await screen.findByText(/No applications yet/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Applications" }));
     await user.click(screen.getByRole("button", { name: "Add application" }));
@@ -77,6 +76,13 @@ describe("Application tracker", () => {
     expect(screen.getByLabelText(/Company/)).toBeRequired();
     expect(screen.getByLabelText(/^Role/)).toBeRequired();
   }, 15000);
+
+  it("omits Follow-ups due from the summary cards", async () => {
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Job search dashboard" })).toBeInTheDocument();
+    expect(screen.queryByText("Follow-ups due")).not.toBeInTheDocument();
+  });
 
   it("shows pipeline progress and prioritizes actions on the dashboard", async () => {
     const user = userEvent.setup();
