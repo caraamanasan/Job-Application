@@ -16,12 +16,28 @@ export type Application = {
   date_applied: string;
   status: ApplicationStatus;
   notes: string | null;
+  follow_up_date: string | null;
+  interview_date: string | null;
+  assessment_date: string | null;
+  deadline_date: string | null;
   created_at: string;
   updated_at: string;
 };
 
 export type ApplicationInput = Partial<
-  Pick<Application, "company" | "role" | "job_url" | "date_applied" | "status" | "notes">
+  Pick<
+    Application,
+    | "company"
+    | "role"
+    | "job_url"
+    | "date_applied"
+    | "status"
+    | "notes"
+    | "follow_up_date"
+    | "interview_date"
+    | "assessment_date"
+    | "deadline_date"
+  >
 >;
 
 export type FieldErrors = Record<string, string>;

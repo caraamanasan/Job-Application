@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS applications (
     status TEXT NOT NULL DEFAULT 'Applied'
         CHECK (status IN ('Applied', 'Assessment', 'Interview', 'Offer', 'Rejected')),
     notes TEXT CHECK (notes IS NULL OR length(notes) <= 5000),
+    follow_up_date TEXT,
+    interview_date TEXT,
+    assessment_date TEXT,
+    deadline_date TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -46,8 +50,69 @@ def close_db(_error: BaseException | None = None) -> None:
 
 
 def init_db() -> None:
-    get_db().executescript(SCHEMA)
-    get_db().commit()
+    connection = get_db()
+    existing = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'applications'"
+    ).fetchone()
+    if existing is not None:
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(applications)")
+        }
+        table_sql = (existing[0] or "").lower()
+        required_columns = {
+            "follow_up_date",
+            "interview_date",
+            "assessment_date",
+            "deadline_date",
+        }
+        if (
+            not required_columns.issubset(columns)
+            or "'saved'" in table_sql
+            or "'screening'" in table_sql
+        ):
+            connection.execute("ALTER TABLE applications RENAME TO applications_legacy")
+            connection.execute("DROP INDEX IF EXISTS idx_applications_date_id")
+            connection.execute("DROP INDEX IF EXISTS idx_applications_status")
+            connection.executescript(SCHEMA)
+            legacy_columns = {
+                row[1]
+                for row in connection.execute("PRAGMA table_info(applications_legacy)")
+            }
+            fields = [
+                "id",
+                "company",
+                "role",
+                "job_url",
+                "date_applied",
+                "status",
+                "notes",
+                "created_at",
+                "updated_at",
+            ]
+            action_fields = [
+                "follow_up_date",
+                "interview_date",
+                "assessment_date",
+                "deadline_date",
+            ]
+            select_fields = []
+            for field in fields + action_fields:
+                if field == "status" and field in legacy_columns:
+                    select_fields.append(
+                        "CASE WHEN status IN ('Saved', 'Screening') "
+                        "THEN 'Applied' ELSE status END"
+                    )
+                else:
+                    select_fields.append(field if field in legacy_columns else "NULL")
+            target_fields = ", ".join(fields + action_fields)
+            connection.execute(
+                f"INSERT INTO applications ({target_fields}) "
+                f"SELECT {', '.join(select_fields)} FROM applications_legacy"
+            )
+            connection.execute("DROP TABLE applications_legacy")
+            connection.executescript(SCHEMA)
+    connection.executescript(SCHEMA)
+    connection.commit()
 
 
 def init_app(app) -> None:
@@ -95,8 +160,9 @@ def create_application(values: dict) -> dict:
     timestamp = _now()
     cursor = get_db().execute(
         """INSERT INTO applications
-           (company, role, job_url, date_applied, status, notes, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+              (company, role, job_url, date_applied, status, notes, follow_up_date,
+                interview_date, assessment_date, deadline_date, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             values["company"],
             values["role"],
@@ -104,6 +170,10 @@ def create_application(values: dict) -> dict:
             values["date_applied"],
             values["status"],
             values["notes"],
+            values["follow_up_date"],
+            values["interview_date"],
+            values["assessment_date"],
+            values["deadline_date"],
             timestamp,
             timestamp,
         ),
@@ -119,7 +189,8 @@ def update_application(application_id: int, values: dict) -> dict | None:
     get_db().execute(
         """UPDATE applications
            SET company = ?, role = ?, job_url = ?, date_applied = ?, status = ?,
-               notes = ?, updated_at = ?
+               notes = ?, follow_up_date = ?, interview_date = ?, assessment_date = ?,
+               deadline_date = ?, updated_at = ?
            WHERE id = ?""",
         (
             values["company"],
@@ -128,6 +199,10 @@ def update_application(application_id: int, values: dict) -> dict | None:
             values["date_applied"],
             values["status"],
             values["notes"],
+            values["follow_up_date"],
+            values["interview_date"],
+            values["assessment_date"],
+            values["deadline_date"],
             _now(),
             application_id,
         ),

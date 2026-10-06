@@ -5,7 +5,16 @@ from urllib.parse import urlsplit
 
 
 STATUSES = ("Applied", "Assessment", "Interview", "Offer", "Rejected")
-EDITABLE_FIELDS = {"company", "role", "job_url", "date_applied", "status", "notes"}
+ACTION_DATE_FIELDS = ("follow_up_date", "interview_date", "assessment_date", "deadline_date")
+EDITABLE_FIELDS = {
+    "company",
+    "role",
+    "job_url",
+    "date_applied",
+    "status",
+    "notes",
+    *ACTION_DATE_FIELDS,
+}
 
 
 def validate_application(data: object, existing: dict | None = None) -> tuple[dict, dict]:
@@ -42,6 +51,21 @@ def validate_application(data: object, existing: dict | None = None) -> tuple[di
                 errors["date_applied"] = "Enter a valid date."
             elif parsed_date > date.today():
                 errors["date_applied"] = "Date applied cannot be in the future."
+
+    for field in ACTION_DATE_FIELDS:
+        raw_action_date = values.get(field)
+        if raw_action_date is None or raw_action_date == "":
+            values[field] = None
+        elif not isinstance(raw_action_date, str):
+            errors[field] = "Enter a valid date."
+        else:
+            try:
+                parsed_action_date = date.fromisoformat(raw_action_date)
+            except ValueError:
+                errors[field] = "Enter a valid date."
+            else:
+                if parsed_action_date.isoformat() != raw_action_date:
+                    errors[field] = "Enter a valid date."
 
     raw_url = values.get("job_url")
     if raw_url is None or raw_url == "":

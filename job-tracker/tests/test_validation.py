@@ -73,6 +73,24 @@ def test_valid_optional_fields_and_all_statuses_are_accepted():
         assert values["job_url"] == "https://jobs.example.test/role"
 
 
+def test_action_dates_are_optional_and_validated():
+    values, errors = validate_application(
+        valid_values(
+            follow_up_date="2026-10-10",
+            interview_date="2026-10-12",
+            assessment_date="2026-10-13",
+            deadline_date="2026-10-14",
+        )
+    )
+
+    assert errors == {}
+    assert values["follow_up_date"] == "2026-10-10"
+    assert values["deadline_date"] == "2026-10-14"
+
+    _, invalid_errors = validate_application(valid_values(interview_date="2026-02-31"))
+    assert "interview_date" in invalid_errors
+
+
 def test_unsupported_fields_and_status_are_rejected():
     _, field_errors = validate_application(valid_values(admin=True))
     _, status_errors = validate_application(valid_values(status="Screening"))

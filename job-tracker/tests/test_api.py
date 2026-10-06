@@ -1,4 +1,7 @@
+import sqlite3
 from datetime import date
+
+from job_tracker import create_app
 
 
 def application_payload(**overrides):
@@ -121,6 +124,25 @@ def test_invalid_status_filter_is_rejected(client):
     assert "status" in response.json["fields"]
 
 
+def test_action_dates_and_new_pipeline_stages_persist(client, csrf_headers):
+    created = create_application(
+        client,
+        csrf_headers,
+        status="Applied",
+        follow_up_date="2026-10-10",
+        interview_date="2026-10-12",
+        assessment_date="2026-10-13",
+        deadline_date="2026-10-14",
+    )
+
+    assert created.status_code == 201
+    assert created.json["status"] == "Applied"
+    assert created.json["follow_up_date"] == "2026-10-10"
+    assert created.json["interview_date"] == "2026-10-12"
+    assert created.json["assessment_date"] == "2026-10-13"
+    assert created.json["deadline_date"] == "2026-10-14"
+
+
 def test_status_change_persists_without_changing_other_fields(client, csrf_headers):
     created = create_application(client, csrf_headers, notes="Keep these notes").json
 
@@ -179,3 +201,51 @@ def test_unknown_application_returns_not_found(client, csrf_headers):
         headers=csrf_headers,
     ).status_code == 404
     assert client.delete("/api/applications/999", headers=csrf_headers).status_code == 404
+
+def test_existing_database_is_migrated_without_losing_applications(tmp_path):
+    database_path = tmp_path / "legacy.sqlite3"
+    connection = sqlite3.connect(database_path)
+    connection.executescript(
+        """
+        CREATE TABLE applications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company TEXT NOT NULL,
+            role TEXT NOT NULL,
+            job_url TEXT,
+            date_applied TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (
+                status IN ('Applied', 'Assessment', 'Interview', 'Offer', 'Rejected')
+            ),
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX idx_applications_date_id
+            ON applications(date_applied DESC, id DESC);
+        CREATE INDEX idx_applications_status ON applications(status);
+        INSERT INTO applications
+            (company, role, date_applied, status, created_at, updated_at)
+        VALUES
+            ('Legacy Co', 'Claims Analyst', '2026-09-29', 'Interview',
+             '2026-09-29T10:00:00+00:00', '2026-09-29T10:00:00+00:00');
+        """
+    )
+    connection.close()
+
+    app = create_app(
+        {
+            "TESTING": True,
+            "SECRET_KEY": "migration-test-secret",
+            "DATABASE": str(database_path),
+        }
+    )
+
+    with app.test_client() as client:
+        response = client.get("/api/applications")
+
+    assert response.status_code == 200
+    migrated = response.json["applications"][0]
+    assert migrated["company"] == "Legacy Co"
+    assert migrated["status"] == "Interview"
+    assert migrated["follow_up_date"] is None
+    assert migrated["deadline_date"] is None

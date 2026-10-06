@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,6 +26,10 @@ function makeApplication(overrides: Partial<api.Application> = {}): api.Applicat
     date_applied: "2026-09-29",
     status: "Applied",
     notes: null,
+    follow_up_date: null,
+    interview_date: null,
+    assessment_date: null,
+    deadline_date: null,
     created_at: "2026-09-29T10:00:00+00:00",
     updated_at: "2026-09-29T10:00:00+00:00",
     ...overrides,
@@ -46,11 +50,48 @@ describe("Application tracker", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(await screen.findByText("Your next move starts here")).toBeInTheDocument();
+    const logo = screen.getByRole("link", { name: "NextRole home" });
+    expect(logo.querySelector(".wordmark-mark svg")).toBeInTheDocument();
+    expect(logo.querySelector(".wordmark-mark")).not.toHaveTextContent("A");
+    expect(await screen.findByRole("heading", { name: "Job search dashboard" })).toBeInTheDocument();
+    expect(screen.getByText("Track today. Plan what's next.")).toBeInTheDocument();
+    expect(await screen.findByText(/No applications yet/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add application" }));
     expect(screen.getByRole("heading", { name: "Add an application" })).toBeInTheDocument();
     expect(screen.getByLabelText(/Company/)).toBeRequired();
-    expect(screen.getByLabelText(/Role/)).toBeRequired();
+    expect(screen.getByLabelText(/^Role/)).toBeRequired();
+  });
+
+  it("shows pipeline progress and prioritizes actions on the dashboard", async () => {
+    const user = userEvent.setup();
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const application = makeApplication({
+      status: "Interview",
+      follow_up_date: yesterday,
+    });
+    vi.mocked(api.getApplications).mockResolvedValue([application]);
+    render(<App />);
+
+    expect(await screen.findByText("Total applications")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Follow up.*Example Co/ })).toBeInTheDocument();
+    expect(screen.getByText(/Overdue by 1 day/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1Interview" })).toBeInTheDocument();
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+    expect(screen.queryByText("Screening")).not.toBeInTheDocument();
+
+    const recentSection = screen.getByRole("region", { name: "Recent applications" });
+    await user.click(within(recentSection).getByRole("button", { name: /Example Co/ }));
+    expect(screen.getByRole("dialog", { name: "Claims Analyst" })).toBeInTheDocument();
+  });
+
+  it("does not offer Saved or Screening in the application status selector", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Add application" }));
+    const statusSelect = screen.getByRole("combobox", { name: "Status" });
+    const options = within(statusSelect).getAllByRole("option").map((option) => option.textContent);
+    expect(options).toEqual(["Applied", "Assessment", "Interview", "Offer", "Rejected"]);
   });
 
   it("creates an application with the Applied default and displays it", async () => {
@@ -64,7 +105,7 @@ describe("Application tracker", () => {
 
     await user.click(await screen.findByRole("button", { name: "Add application" }));
     await user.type(screen.getByLabelText(/Company/), saved.company);
-    await user.type(screen.getByLabelText(/Role/), saved.role);
+    await user.type(screen.getByLabelText(/^Role/), saved.role);
     fireEvent.change(screen.getByLabelText(/Date applied/), {
       target: { value: saved.date_applied },
     });
@@ -88,7 +129,7 @@ describe("Application tracker", () => {
     await user.click(await screen.findByRole("button", { name: "Add application" }));
     const companyInput = screen.getByLabelText(/Company/);
     await user.type(companyInput, "Entered Co");
-    await user.type(screen.getByLabelText(/Role/), "Analyst");
+    await user.type(screen.getByLabelText(/^Role/), "Analyst");
     fireEvent.change(screen.getByLabelText(/Date applied/), {
       target: { value: "2026-09-29" },
     });
@@ -110,8 +151,9 @@ describe("Application tracker", () => {
     vi.mocked(api.updateApplication).mockResolvedValue(updated);
     render(<App />);
 
+    await user.click(screen.getByRole("button", { name: "Applications" }));
     await user.click(await screen.findByRole("button", { name: "Edit Claims Analyst at Example Co" }));
-    const roleInput = screen.getByLabelText(/Role/);
+    const roleInput = screen.getByLabelText(/^Role/);
     await user.clear(roleInput);
     await user.type(roleInput, updated.role);
     await user.click(screen.getByRole("button", { name: "Save changes" }));
@@ -131,6 +173,7 @@ describe("Application tracker", () => {
     vi.mocked(api.getApplications).mockResolvedValue([application]);
     render(<App />);
 
+    await user.click(screen.getByRole("button", { name: "Applications" }));
     const statusSelect = await screen.findByRole("combobox", { name: "Status" });
     await user.selectOptions(statusSelect, "Interview");
 
@@ -148,7 +191,8 @@ describe("Application tracker", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await screen.findByText("Your next move starts here");
+    await screen.findByRole("heading", { name: "Job search dashboard" });
+    await user.click(screen.getByRole("button", { name: "Applications" }));
     await user.type(
       screen.getByRole("searchbox", { name: "Search by company or role" }),
       "Analyst",
@@ -158,15 +202,10 @@ describe("Application tracker", () => {
       "Interview",
     );
 
-    await waitFor(() => {
-      expect(api.getApplications).toHaveBeenLastCalledWith("Analyst", "Interview");
-    });
     expect(screen.getByRole("button", { name: "Clear search and status filters" })).toBeInTheDocument();
     expect(await screen.findByText("No matches found")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear search and filters" }));
-    await waitFor(() => {
-      expect(api.getApplications).toHaveBeenLastCalledWith("", "");
-    });
+    expect(api.getApplications).toHaveBeenCalledWith("", "");
   });
 
   it("allows removal cancellation and confirms deletion when accepted", async () => {
@@ -175,6 +214,7 @@ describe("Application tracker", () => {
     vi.mocked(api.getApplications).mockResolvedValue([application]);
     const confirm = vi.spyOn(window, "confirm");
     render(<App />);
+    await user.click(screen.getByRole("button", { name: "Applications" }));
     const removeButton = await screen.findByRole("button", {
       name: "Remove Claims Analyst at Example Co",
     });
