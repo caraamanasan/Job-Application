@@ -10,7 +10,6 @@ vi.mock("./api", async (importOriginal) => {
   return {
     ...original,
     createApplication: vi.fn(),
-    getAllApplications: vi.fn(),
     getApplications: vi.fn(),
     getCsrfToken: vi.fn(),
     removeApplication: vi.fn(),
@@ -55,7 +54,6 @@ describe("Application tracker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getCsrfToken).mockResolvedValue({ csrf_token: "test-token" });
-    vi.mocked(api.getAllApplications).mockResolvedValue([]);
     vi.mocked(api.getApplications).mockResolvedValue([]);
     vi.mocked(api.createApplication).mockResolvedValue(makeApplication());
     vi.mocked(api.updateApplication).mockResolvedValue(makeApplication());
@@ -112,7 +110,7 @@ describe("Application tracker", () => {
     expect(options).toEqual(["Applied", "Assessment", "Interview", "Offer", "Rejected"]);
   });
 
-  it("shows all-time status counts independently of list filters with keyboard details", async () => {
+  it("shows all-time outcomes on the dashboard independently of application-list filters", async () => {
     const user = userEvent.setup();
     const records = [
       makeApplication({ id: 1, status: "Applied" }),
@@ -120,10 +118,7 @@ describe("Application tracker", () => {
       makeApplication({ id: 3, status: "Assessment" }),
       makeApplication({ id: 4, status: "Rejected" }),
     ];
-    vi.mocked(api.getAllApplications).mockResolvedValue(records);
-    vi.mocked(api.getApplications)
-      .mockResolvedValueOnce(records)
-      .mockResolvedValueOnce([records[3]]);
+    vi.mocked(api.getApplications).mockResolvedValue(records);
     const { container } = render(<App />);
 
     await user.click(screen.getByRole("button", { name: "Applications" }));
@@ -132,24 +127,21 @@ describe("Application tracker", () => {
       "Rejected",
     );
     expect(container.querySelector(".result-count")).toHaveTextContent("1");
-    fireEvent.click(getSectionButton(container, "Insights"));
+    fireEvent.click(getSectionButton(container, "Dashboard"));
 
-    expect(container.querySelector("#insights-title")).toHaveTextContent("Application insights");
     expect(container.querySelector("#status-summary-title")).toHaveTextContent("4 applications");
     expect(container.querySelectorAll(".status-graph-label")).toHaveLength(4);
     expect(container.querySelector(".status-graph")).not.toHaveTextContent("Applied");
-    const insightSections = Array.from(container.querySelectorAll(".insights-layout > section"));
-    expect(insightSections.map((section) => section.className)).toEqual(["status-summary", "activity-summary"]);
+    expect(container.querySelector(".pipeline-grid")).toBeNull();
+    expect(container.querySelector(".activity-summary")).toBeInTheDocument();
 
     const assessmentDetail = getStatusRow(container, "Assessment");
     fireEvent.focus(assessmentDetail);
     expect(container.querySelector('[role="tooltip"]')).toHaveTextContent("Assessment: 1 of 4 applications (25%)");
   }, 15000);
 
-  it("shows an explicit zero-total state in Insights", async () => {
+  it("shows an explicit zero-total state in the dashboard outcome graph", async () => {
     const { container } = render(<App />);
-
-    fireEvent.click(getSectionButton(container, "Insights"));
 
     await waitFor(() => {
       expect(container.querySelector("#status-summary-title")).toHaveTextContent("0 applications");
@@ -157,27 +149,10 @@ describe("Application tracker", () => {
     });
   });
 
-  it("distinguishes an Insights load failure from an empty collection and allows retry", async () => {
-    vi.mocked(api.getAllApplications)
-      .mockRejectedValueOnce(new Error("service unavailable"))
-      .mockResolvedValueOnce([makeApplication()]);
-    const { container } = render(<App />);
-
-    fireEvent.click(getSectionButton(container, "Insights"));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Application insights could not be loaded. Please try again.",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => {
-      expect(container.querySelector("#status-summary-title")).toHaveTextContent("1 application");
-    });
-  });
-
   it("updates the all-time summary after a saved status change and removal", async () => {
     const applied = makeApplication({ id: 1, status: "Applied" });
     const rejected = makeApplication({ id: 2, status: "Rejected" });
     const updated = { ...applied, status: "Offer" as const };
-    vi.mocked(api.getAllApplications).mockResolvedValue([applied, rejected]);
     vi.mocked(api.getApplications).mockResolvedValue([applied, rejected]);
     vi.mocked(api.updateApplication).mockResolvedValue(updated);
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -187,14 +162,14 @@ describe("Application tracker", () => {
     const savedList = await screen.findByRole("list", { name: "Saved applications" });
     fireEvent.change(within(savedList).getAllByRole("combobox")[0], { target: { value: "Offer" } });
     await waitFor(() => expect(api.updateApplication).toHaveBeenCalled());
-    fireEvent.click(getSectionButton(container, "Insights"));
+    fireEvent.click(getSectionButton(container, "Dashboard"));
     fireEvent.focus(getStatusRow(container, "Offer"));
     expect(container.querySelector('[role="tooltip"]')).toHaveTextContent("Offer: 1 of 2 applications (50%)");
 
     fireEvent.click(getSectionButton(container, "Applications"));
     fireEvent.click(screen.getAllByRole("button", { name: "Remove Claims Analyst at Example Co" })[0]);
     await waitFor(() => expect(screen.getByText("1", { selector: ".result-count" })).toBeInTheDocument());
-    fireEvent.click(getSectionButton(container, "Insights"));
+    fireEvent.click(getSectionButton(container, "Dashboard"));
     expect(container.querySelector("#status-summary-title")).toHaveTextContent("1 application");
     fireEvent.focus(getStatusRow(container, "Rejected"));
     expect(container.querySelector('[role="tooltip"]')).toHaveTextContent("Rejected: 1 of 1 application (100%)");
@@ -208,10 +183,9 @@ describe("Application tracker", () => {
       .toISOString()
       .slice(0, 10);
     const moved = { ...current, date_applied: localDate };
-    vi.mocked(api.getAllApplications)
+    vi.mocked(api.getApplications)
       .mockResolvedValueOnce([current])
       .mockResolvedValueOnce([moved]);
-    vi.mocked(api.getApplications).mockResolvedValue([current]);
     vi.mocked(api.updateApplication).mockResolvedValue(moved);
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const { container } = render(<App />);
@@ -221,7 +195,7 @@ describe("Application tracker", () => {
     fireEvent.change(screen.getByLabelText(/Date applied/), { target: { value: localDate } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(api.updateApplication).toHaveBeenCalled());
-    fireEvent.click(getSectionButton(container, "Insights"));
+    fireEvent.click(getSectionButton(container, "Dashboard"));
 
     const dateLabel = new Intl.DateTimeFormat(undefined, {
       month: "long",
@@ -233,7 +207,7 @@ describe("Application tracker", () => {
 
     fireEvent.click(getSectionButton(container, "Applications"));
     fireEvent.click(screen.getByRole("button", { name: "Remove Claims Analyst at Example Co" }));
-    fireEvent.click(getSectionButton(container, "Insights"));
+    fireEvent.click(getSectionButton(container, "Dashboard"));
     const removedCellSelector = `[role="gridcell"][aria-label="${dateLabel}: 0 applications"]`;
     await waitFor(() => expect(container.querySelector(removedCellSelector)).not.toBeNull());
   }, 15000);
@@ -263,7 +237,8 @@ describe("Application tracker", () => {
       "test-token",
     );
     expect(container.querySelector(".notice")).toHaveTextContent("Application added.");
-    fireEvent.click(getSectionButton(container, "Insights"));
+    fireEvent.click(getSectionButton(container, "Dashboard"));
+    await waitFor(() => expect(container.querySelector("#status-summary-title")).toHaveTextContent("1 application"));
     expect(container.querySelector(".notice")).toBeNull();
   });
 
@@ -315,7 +290,7 @@ describe("Application tracker", () => {
     );
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(container.querySelector(".notice")).toHaveTextContent("Application updated.");
-    fireEvent.click(getSectionButton(container, "Insights"));
+    fireEvent.click(getSectionButton(container, "Dashboard"));
     expect(container.querySelector(".notice")).toBeNull();
   });
 

@@ -90,16 +90,6 @@ h1 { margin-bottom: 8px; font: 600 48px/1 "Newsreader", Georgia, serif; letter-s
 .section-heading h2 { margin: 0; font: 600 22px/1.1 "Newsreader", Georgia, serif; }
 .text-action { padding: 7px 0 7px 8px; display: inline-flex; align-items: center; gap: 5px; border: 0; color: var(--forest); background: transparent; font-size: 11px; font-weight: 800; white-space: nowrap; }
 .text-action:hover { color: #3f785e; }
-.pipeline-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); padding-top: 17px; }
-.pipeline-stage { position: relative; min-width: 0; padding: 0 12px 8px 0; display: flex; flex-direction: column; align-items: start; gap: 7px; border: 0; color: #68736b; background: transparent; text-align: left; font-size: 11px; font-weight: 700; }
-.pipeline-stage:hover { color: var(--forest); }
-.pipeline-number { color: var(--ink); font: 600 26px/1 "Newsreader", Georgia, serif; }
-.pipeline-track { width: 100%; height: 4px; overflow: hidden; background: #e6e7dc; }
-.pipeline-track > span { height: 100%; display: block; background: #4d8268; }
-.stage-assessment .pipeline-track > span, .stage-interview .pipeline-track > span { background: #b3be3a; }
-.stage-offer .pipeline-track > span { background: #4e8a60; }
-.stage-rejected .pipeline-track > span { background: #c8583f; }
-.pipeline-separator { position: absolute; top: 12px; right: 4px; width: 1px; height: 24px; background: var(--line); }
 .dashboard-columns { display: grid; grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr); gap: 34px; }
 .section-count { min-width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: #5e6a61; font: 500 11px "DM Mono", monospace; }
 .action-list, .recent-list { margin: 0; padding: 0; list-style: none; }
@@ -131,18 +121,11 @@ h1 { margin-bottom: 8px; font: 600 48px/1 "Newsreader", Georgia, serif; letter-s
 .status-assessment, .status-interview { color: #785a1d; border-color: #e7d5a5; background: #f7f0d9; }
 .status-offer { color: #285e47; border-color: #bdd8c1; background: #e4f1e5; }
 .status-rejected { color: #984b3e; border-color: #e8c7bb; background: #f8eae4; }
-.metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(250px, 1.45fr); gap: 20px; padding: 18px 0 4px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding: 18px 0 4px; }
 .metric-value { min-width: 0; display: flex; flex-direction: column; align-items: start; gap: 5px; }
 .metric-value > strong { color: var(--forest); font: 600 30px/1 "Newsreader", Georgia, serif; }
 .metric-value > span, .chart-title { color: #505d53; font-size: 11px; font-weight: 800; }
 .metric-value > small { color: #818a81; font-size: 10px; }
-.monthly-chart { min-width: 0; padding-left: 18px; border-left: 1px solid var(--line); }
-.month-bars { height: 90px; padding-top: 9px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 9px; }
-.month-column { min-width: 0; display: grid; grid-template-rows: 12px 1fr 13px; justify-items: center; gap: 4px; }
-.month-count { color: #778078; font: 9px "DM Mono", monospace; }
-.month-bar-track { width: min(22px, 75%); height: 100%; display: flex; align-items: end; background: #eeeee7; }
-.month-bar-track > span { width: 100%; min-height: 0; background: #56866c; }
-.month-label { color: #778078; font: 9px "DM Mono", monospace; }
 .details-backdrop { position: fixed; z-index: 10; inset: 0; padding: 20px; display: grid; place-items: center; background: rgb(25 35 30 / 48%); animation: enter 140ms ease-out both; }
 .details-dialog { width: min(520px, 100%); padding: 25px 27px 20px; border: 1px solid #d9dbd0; border-top: 3px solid var(--forest); background: var(--paper); box-shadow: 0 16px 48px rgb(15 28 20 / 24%); }
 .details-header { display: flex; justify-content: space-between; gap: 20px; }
@@ -222,21 +205,9 @@ h1 { margin-bottom: 8px; font: 600 48px/1 "Newsreader", Georgia, serif; letter-s
 .workspace-footer { margin-top: 27px; padding-top: 14px; display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid rgb(32 42 39 / 10%); color: #798178; font: 10px "DM Mono", monospace; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-.section-tabs { margin-top: 20px; display: flex; gap: 22px; border-bottom: 1px solid var(--line); }
-.section-tab { min-height: 40px; padding: 0 2px; border: 0; border-bottom: 2px solid transparent; color: #707a72; background: transparent; font-size: 12px; font-weight: 700; }
-.section-tab:hover { color: var(--forest); }
-.section-tab.is-active { color: var(--forest-dark); border-bottom-color: var(--forest); }
-
-.insights-section { margin-top: 28px; animation: enter 180ms ease-out both; }
-.insights-heading { display: flex; align-items: end; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
-.insights-heading .eyebrow { margin-bottom: 7px; }
-.insights-heading h2 { margin-bottom: 5px; font: 600 30px/1.1 "Newsreader", Georgia, serif; }
-.insights-intro { margin: 0; color: var(--muted); font-size: 13px; }
-.insights-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding-top: 25px; }
-.status-summary, .activity-summary { min-width: 0; }
-.status-summary { padding-bottom: 26px; border-bottom: 1px solid var(--line); }
-.activity-summary { padding-top: 26px; }
-.summary-heading { min-height: 67px; display: flex; align-items: start; justify-content: space-between; }
+.status-summary { min-width: 0; }
+.activity-summary { min-width: 0; }
+.summary-heading { min-height: 26px; display: flex; align-items: start; justify-content: space-between; }
 .summary-heading .eyebrow { margin-bottom: 5px; }
 .summary-heading h3, .activity-heading h3 { margin: 0; font: 600 23px/1.15 "Newsreader", Georgia, serif; }
 .status-graph { display: grid; gap: 7px; margin-top: 19px; }
@@ -273,9 +244,6 @@ button.activity-cell:focus-visible { position: relative; z-index: 1; outline: 3p
 .activity-empty { margin: 0; color: var(--muted); font-size: 11px; }
 .activity-legend { display: flex; align-items: center; gap: 4px; color: #747e75; font: 9px "DM Mono", monospace; }
 .activity-legend .activity-cell { width: 10px; height: 10px; min-width: 10px; }
-.insights-message { padding: 30px 8px; display: flex; align-items: center; gap: 15px; color: var(--muted); font-size: 13px; }
-.insights-message p { margin: 0; }
-
 @keyframes enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 720px) {
@@ -308,7 +276,6 @@ button.activity-cell:focus-visible { position: relative; z-index: 1; outline: 3p
 @media (max-width: 900px) {
   .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .monthly-chart { grid-column: 1 / -1; padding: 15px 0 0; border-left: 0; border-top: 1px solid var(--line); }
 }
 
 @media (max-width: 720px) {
@@ -319,10 +286,7 @@ button.activity-cell:focus-visible { position: relative; z-index: 1; outline: 3p
   .dashboard-columns { grid-template-columns: 1fr; gap: 25px; }
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-card { min-height: 98px; }
-  .pipeline-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 16px; }
-  .pipeline-separator { display: none; }
   .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 17px; }
-  .monthly-chart { grid-column: 1 / -1; }
   .recent-item { grid-template-columns: 34px minmax(0, 1fr) auto; }
   .recent-item time { grid-column: 2 / -1; }
 }
@@ -332,8 +296,6 @@ button.activity-cell:focus-visible { position: relative; z-index: 1; outline: 3p
   .summary-card { padding: 12px; }
   .summary-card-top { font-size: 10px; }
   .summary-card > strong { font-size: 27px; }
-  .pipeline-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .pipeline-stage { font-size: 10px; }
   .action-row { grid-template-columns: 28px minmax(0, 1fr); gap: 8px; }
   .action-marker { width: 27px; height: 27px; }
   .action-date { grid-column: 2; display: flex; flex-direction: row; align-items: center; justify-items: start; gap: 7px; text-align: left; }

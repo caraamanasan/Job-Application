@@ -78,11 +78,6 @@ export function getCsrfToken(): Promise<{ csrf_token: string }> {
   return request("/api/csrf");
 }
 
-export async function getAllApplications(): Promise<Application[]> {
-  const result = await request<{ applications: Application[] }>("/api/applications");
-  return result.applications;
-}
-
 export async function getApplications(
   search: string,
   status: ApplicationStatus | "",

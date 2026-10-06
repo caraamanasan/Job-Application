@@ -18,7 +18,6 @@ import {
 import {
   ApiError,
   createApplication,
-  getAllApplications,
   getApplications,
   getCsrfToken,
   removeApplication,
@@ -29,7 +28,8 @@ import {
   type ApplicationStatus,
   type FieldErrors,
 } from "./api";
-import ApplicationInsights from "./ApplicationInsights";
+import ApplicationActivityGrid from "./ApplicationActivityGrid";
+import ApplicationStatusSummary from "./ApplicationStatusSummary";
 
 type FormValues = {
   company: string;
@@ -49,14 +49,6 @@ type DashboardAction = {
   date: string;
   label: string;
 };
-
-const PIPELINE_STAGES: ApplicationStatus[] = [
-  "Applied",
-  "Assessment",
-  "Interview",
-  "Offer",
-  "Rejected",
-];
 
 const EMPTY_FORM: FormValues = {
   company: "",
@@ -122,11 +114,8 @@ function percentage(part: number, total: number): string {
 export default function App() {
   const [csrfToken, setCsrfToken] = useState("");
   const [applications, setApplications] = useState<Application[]>([]);
-  const [view, setView] = useState<"dashboard" | "applications" | "insights">("dashboard");
+  const [view, setView] = useState<"dashboard" | "applications">("dashboard");
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
-  const [insightApplications, setInsightApplications] = useState<Application[]>([]);
-  const [insightsLoading, setInsightsLoading] = useState(true);
-  const [insightsLoadError, setInsightsLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "">("");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -169,27 +158,6 @@ export default function App() {
       })
       .finally(() => {
         if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [refreshKey]);
-
-  useEffect(() => {
-    let active = true;
-    setInsightsLoading(true);
-    getAllApplications()
-      .then((result) => {
-        if (active) {
-          setInsightApplications(result);
-          setInsightsLoadError("");
-        }
-      })
-      .catch(() => {
-        if (active) setInsightsLoadError("Application insights could not be loaded. Please try again.");
-      })
-      .finally(() => {
-        if (active) setInsightsLoading(false);
       });
     return () => {
       active = false;
@@ -274,16 +242,12 @@ export default function App() {
     if (!csrfToken) return;
     setLoadError("");
     try {
-      const updated = await updateApplication(application.id, { status: nextStatus }, csrfToken);
+      await updateApplication(application.id, { status: nextStatus }, csrfToken);
       setApplications((current) =>
         current.map((item) =>
           item.id === application.id ? { ...item, status: nextStatus } : item,
         ),
       );
-      setInsightApplications((current) =>
-        current.map((item) => item.id === updated.id ? updated : item),
-      );
-      setInsightsLoadError("");
       setNotice(`${application.company} status updated to ${nextStatus}.`);
     } catch {
       setLoadError("Status could not be updated. Please try again.");
@@ -299,8 +263,6 @@ export default function App() {
     try {
       await removeApplication(application.id, csrfToken);
       setApplications((current) => current.filter((item) => item.id !== application.id));
-      setInsightApplications((current) => current.filter((item) => item.id !== application.id));
-      setInsightsLoadError("");
       setNotice(`Application for ${application.company} removed.`);
     } catch {
       setLoadError("Application could not be removed. Please try again.");
@@ -330,10 +292,6 @@ export default function App() {
     item.follow_up_date && item.status !== "Offer" && item.status !== "Rejected"
       && daysFromToday(item.follow_up_date) <= 7,
   ).length;
-  const pipelineCounts = PIPELINE_STAGES.map((status) => ({
-    status,
-    count: applications.filter((item) => item.status === status).length,
-  }));
   const recentApplications = [...applications]
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
     .slice(0, 5);
@@ -353,19 +311,6 @@ export default function App() {
     }
     return actions;
   }).sort((left, right) => left.date.localeCompare(right.date)).slice(0, 6);
-  const months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date();
-    date.setDate(1);
-    date.setMonth(date.getMonth() - 5 + index);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    return {
-      key,
-      label: new Intl.DateTimeFormat(undefined, { month: "short" }).format(date),
-      count: submittedApplications.filter((item) => item.date_applied.startsWith(key)).length,
-    };
-  });
-  const maxMonthlyApplications = Math.max(1, ...months.map((month) => month.count));
-
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -381,7 +326,7 @@ export default function App() {
             className={view === "dashboard" ? "nav-link active" : "nav-link"}
             type="button"
             aria-current={view === "dashboard" ? "page" : undefined}
-            onClick={() => { setView("dashboard"); setEditorOpen(false); }}
+            onClick={() => { setView("dashboard"); setEditorOpen(false); setNotice(""); }}
           >
             <LayoutDashboard size={16} aria-hidden="true" /> Dashboard
           </button>
@@ -393,14 +338,6 @@ export default function App() {
           >
             <List size={16} aria-hidden="true" /> Applications
           </button>
-          <button
-            className={view === "insights" ? "nav-link active" : "nav-link"}
-            type="button"
-            aria-current={view === "insights" ? "page" : undefined}
-            onClick={() => { setNotice(""); setView("insights"); }}
-          >
-            <LayoutDashboard size={16} aria-hidden="true" /> Insights
-          </button>
         </nav>
         <span className="local-indicator"><span aria-hidden="true" /> Private workspace</span>
       </header>
@@ -409,15 +346,11 @@ export default function App() {
         <section className="page-heading" aria-labelledby="page-title">
           <div>
             <p className="eyebrow">YOUR SEARCH, IN ORDER</p>
-            <h1 id="page-title">
-              {view === "dashboard" ? "Job search dashboard" : view === "insights" ? "Insights" : "Applications"}
-            </h1>
+            <h1 id="page-title">{view === "dashboard" ? "Job search dashboard" : "Applications"}</h1>
             <p className="page-intro">
               {view === "dashboard"
                 ? "Progress, priorities, and the next move."
-                : view === "insights"
-                  ? "Your application outcomes and daily momentum, at a glance."
-                  : "A clear view of every opportunity and what comes next."}
+                : "A clear view of every opportunity and what comes next."}
             </p>
           </div>
           {view === "applications" && (
@@ -450,24 +383,9 @@ export default function App() {
 
             <section className="dashboard-section pipeline-section" aria-labelledby="pipeline-title">
               <div className="section-heading">
-                <div><p className="eyebrow">AT A GLANCE</p><h2 id="pipeline-title">Application pipeline</h2></div>
-                <button className="text-action" type="button" onClick={() => setView("applications")}>View applications <ArrowUpRight size={15} aria-hidden="true" /></button>
+                <div><p className="eyebrow">AT A GLANCE</p><h2 id="pipeline-title">Application outcomes</h2></div>
               </div>
-              <div className="pipeline-grid">
-                {pipelineCounts.map(({ status, count }, index) => (
-                  <button
-                    type="button"
-                    className={`pipeline-stage stage-${status.toLowerCase()}`}
-                    key={status}
-                    onClick={() => { setStatusFilter(status); setSearch(""); setView("applications"); }}
-                  >
-                    <span className="pipeline-number">{loading ? "–" : count}</span>
-                    <span>{status}</span>
-                    <span className="pipeline-track" aria-hidden="true"><span style={{ width: `${totalApplications ? Math.max(4, (count / totalApplications) * 100) : 0}%` }} /></span>
-                    {index < pipelineCounts.length - 1 && <span className="pipeline-separator" aria-hidden="true" />}
-                  </button>
-                ))}
-              </div>
+              <ApplicationStatusSummary applications={applications} loading={loading} />
             </section>
 
             <div className="dashboard-columns">
@@ -529,19 +447,11 @@ export default function App() {
                 <div className="metric-value"><strong>{percentage(respondedCount, submittedApplications.length)}</strong><span>Response rate</span><small>{respondedCount} of {submittedApplications.length} submitted</small></div>
                 <div className="metric-value"><strong>{percentage(interviewConversionCount, submittedApplications.length)}</strong><span>Interview conversion</span><small>{interviewConversionCount} of {submittedApplications.length} reached interview</small></div>
                 <div className="metric-value"><strong>{percentage(offerCount, submittedApplications.length)}</strong><span>Offer rate</span><small>{offerCount} of {submittedApplications.length} submitted</small></div>
-                <div className="monthly-chart" aria-label="Applications submitted over the last six months">
-                  <span className="chart-title">Applications submitted</span>
-                  <div className="month-bars">
-                    {months.map((month) => (
-                      <div className="month-column" key={month.key}>
-                        <span className="month-count">{month.count}</span>
-                        <span className="month-bar-track"><span style={{ height: `${month.count ? Math.max(8, (month.count / maxMonthlyApplications) * 100) : 0}%` }} /></span>
-                        <span className="month-label">{month.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
+            </section>
+
+            <section className="dashboard-section activity-dashboard-section" aria-label="Application activity">
+              <ApplicationActivityGrid applications={applications} />
             </section>
           </div>
         )}
@@ -803,14 +713,6 @@ export default function App() {
           )}
         </section>}
 
-  {view === "insights" && (
-          <ApplicationInsights
-            applications={insightApplications}
-            loading={insightsLoading}
-            error={insightsLoadError}
-            onRetry={() => setRefreshKey((key) => key + 1)}
-          />
-        )}
         <footer className="workspace-footer">
           <span>Stored on this device</span>
           <span>NextRole <span aria-hidden="true">·</span> Personal edition</span>
