@@ -69,6 +69,7 @@ describe("Application tracker", () => {
     expect(logo.querySelector(".wordmark-mark")).not.toHaveTextContent("A");
     expect(await screen.findByRole("heading", { name: "Job search dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Track today. Plan what's next.")).toBeInTheDocument();
+    expect(screen.queryByText("Follow-ups due")).not.toBeInTheDocument();
     expect(await screen.findByText(/No applications yet/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Applications" }));
     await user.click(screen.getByRole("button", { name: "Add application" }));

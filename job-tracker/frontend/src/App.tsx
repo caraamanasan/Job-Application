@@ -4,7 +4,6 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   CircleAlert,
-  Clock3,
   LayoutDashboard,
   List,
   ExternalLink,
@@ -288,10 +287,6 @@ export default function App() {
   const respondedCount = applications.filter((item) =>
     ["Assessment", "Interview", "Offer", "Rejected"].includes(item.status),
   ).length;
-  const followUpsRequired = applications.filter((item) =>
-    item.follow_up_date && item.status !== "Offer" && item.status !== "Rejected"
-      && daysFromToday(item.follow_up_date) <= 7,
-  ).length;
   const recentApplications = [...applications]
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
     .slice(0, 5);
@@ -372,7 +367,6 @@ export default function App() {
                 { label: "Interviews", value: interviewCount, icon: CalendarDays, tone: "yellow" },
                 { label: "Offers", value: offerCount, icon: ArrowUpRight, tone: "green" },
                 { label: "Rejections", value: rejectionCount, icon: CircleAlert, tone: "coral" },
-                { label: "Follow-ups due", value: followUpsRequired, icon: Clock3, tone: "yellow" },
               ].map(({ label, value, icon: Icon, tone }) => (
                 <article className={`summary-card tone-${tone}`} key={label}>
                   <div className="summary-card-top"><span>{label}</span><Icon size={17} aria-hidden="true" /></div>

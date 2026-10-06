@@ -75,7 +75,7 @@ h1 { margin-bottom: 8px; font: 600 48px/1 "Newsreader", Georgia, serif; letter-s
 .button-quiet:hover { background: #eeede5; }
 
 .dashboard-content { display: grid; gap: 27px; padding-top: 24px; animation: enter 200ms ease-out both; }
-.summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .summary-card { min-height: 112px; padding: 15px 16px 13px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--line); border-top: 3px solid #4c8068; background: var(--paper); }
 .summary-card.tone-yellow { border-top-color: #b2c53a; }
 .summary-card.tone-coral { border-top-color: #c8583f; }
